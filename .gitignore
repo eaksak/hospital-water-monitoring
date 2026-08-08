@@ -1,0 +1,107 @@
+# ============================================
+# Google Apps Script + clasp
+# ============================================
+
+# clasp local project link (contains Script ID - keep private!)
+.clasp.json
+.clasprc.json
+
+# clasp build output
+dist/
+
+# ============================================
+# Node.js
+# ============================================
+
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# ============================================
+# Environment & Secrets
+# ============================================
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# API keys / credentials
+credentials.json
+secrets.json
+config.local.js
+
+# ============================================
+# IDE & Editors
+# ============================================
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# JetBrains (WebStorm, IntelliJ)
+.idea/
+*.iml
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# ============================================
+# Operating System
+# ============================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+
+# ============================================
+# Logs & Temp Files
+# ============================================
+
+logs/
+*.log
+tmp/
+temp/
+*.tmp
+*.bak
+
+# ============================================
+# Sample Data (uncomment if you want to exclude)
+# ============================================
+
+# sample-data/*.xlsx
+# sample-data/*.csv
+
+# ============================================
+# Screenshots (uncomment if too large for repo)
+# ============================================
+
+# docs/screenshots/*.png
+# docs/screenshots/*.jpg
