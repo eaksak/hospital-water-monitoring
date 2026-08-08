@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <style>
+    :root { color-scheme: light; --primary:#0b7285; --ink:#17333a; --muted:#66777b; --line:#d8e4e7; }
+    * { box-sizing: border-box; }
+    body { margin:0; padding:18px; font:14px/1.45 Arial, sans-serif; color:var(--ink); background:#f7fbfc; }
+    h2 { margin:0 0 4px; color:var(--primary); }
+    .lead { margin:0 0 18px; color:var(--muted); }
+    label { display:block; margin:12px 0 5px; font-weight:700; }
+    input, select { width:100%; padding:10px 11px; border:1px solid var(--line); border-radius:8px; background:#fff; font-size:14px; }
+    input:focus, select:focus { outline:2px solid #99d8df; border-color:var(--primary); }
+    button { width:100%; margin-top:18px; padding:11px; border:0; border-radius:8px; color:#fff; background:var(--primary); font-weight:700; cursor:pointer; }
+    button:disabled { opacity:.6; cursor:wait; }
+    .message { min-height:22px; margin-top:12px; padding:9px; border-radius:7px; display:none; }
+    .success { display:block; color:#146c43; background:#d1e7dd; }
+    .error { display:block; color:#842029; background:#f8d7da; }
+    .hint { color:var(--muted); font-size:12px; margin-top:4px; }
+  </style>
+</head>
+<body>
+  <h2>บันทึกข้อมูลน้ำรายเดือน</h2>
+  <p class="lead">กรอกค่ามิเตอร์ประจำเดือน ระบบจะคำนวณตัวชี้วัดและอัปเดต Dashboard อัตโนมัติ</p>
+  <form id="reading-form">
+    <label for="year">ปี (พ.ศ.)</label>
+    <input id="year" name="year" type="number" min="2500" max="2700" required>
+
+    <label for="month">เดือน</label>
+    <select id="month" name="month" required>
+      <? for (let i = 0; i < months.length; i++) { ?>
+        <option value="<?= months[i] ?>"><?= months[i] ?></option>
+      <? } ?>
+    </select>
+
+    <label for="municipal">น้ำประปาเทศบาล (ลบ.ม.)</label>
+    <input id="municipal" name="municipal" type="number" min="0" step="0.01" required>
+
+    <label for="plant">น้ำจากโรงผลิต (ลบ.ม.)</label>
+    <input id="plant" name="plant" type="number" min="0" step="0.01" required>
+
+    <label for="reserve">ระดับน้ำสำรอง (ลบ.ม.)</label>
+    <input id="reserve" name="reserve" type="number" min="0" step="0.01">
+    <div class="hint">เว้นว่างได้ หากยังไม่มีค่าระดับน้ำสำรอง</div>
+
+    <button id="save" type="submit">บันทึกข้อมูล</button>
+  </form>
+  <div id="message" class="message" role="status"></div>
+
+  <script>
+    const form = document.getElementById('reading-form');
+    const button = document.getElementById('save');
+    const message = document.getElementById('message');
+
+    google.script.run.withSuccessHandler(function(defaults) {
+      document.getElementById('year').value = defaults.year;
+      document.getElementById('month').value = defaults.month;
+    }).getEntryDefaults();
+
+    form.addEventListener('submit', function(event) {
+      event.preventDefault();
+      button.disabled = true;
+      button.textContent = 'กำลังบันทึก…';
+      message.className = 'message';
+      message.textContent = '';
+
+      const payload = {
+        year: Number(document.getElementById('year').value),
+        month: document.getElementById('month').value,
+        municipal: document.getElementById('municipal').value,
+        plant: document.getElementById('plant').value,
+        reserve: document.getElementById('reserve').value
+      };
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          message.className = 'message success';
+          message.textContent = result;
+          button.disabled = false;
+          button.textContent = 'บันทึกข้อมูล';
+        })
+        .withFailureHandler(function(error) {
+          message.className = 'message error';
+          message.textContent = error && error.message ? error.message : String(error);
+          button.disabled = false;
+          button.textContent = 'บันทึกข้อมูล';
+        })
+        .submitMonthlyReading(payload);
+    });
+  </script>
+</body>
+</html>
