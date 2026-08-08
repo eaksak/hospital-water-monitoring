@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <style>
+    :root { --primary:#0b7285; --primary2:#1098ad; --ink:#17333a; --muted:#67777b; --panel:#fff; --bg:#eef7f8; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:Arial,sans-serif; color:var(--ink); background:linear-gradient(135deg,#e6f5f6,#f8fbfb); }
+    header { padding:24px clamp(18px,5vw,60px); color:#fff; background:linear-gradient(120deg,var(--primary),var(--primary2)); }
+    header h1 { margin:0; font-size:clamp(22px,4vw,34px); }
+    header p { margin:6px 0 0; opacity:.85; }
+    main { max-width:1180px; margin:auto; padding:24px clamp(16px,4vw,42px) 46px; }
+    .toolbar { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:18px; color:var(--muted); }
+    button { border:0; border-radius:8px; padding:9px 14px; color:#fff; background:var(--primary); cursor:pointer; font-weight:700; }
+    .cards { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; }
+    .card,.panel { padding:18px; border:1px solid #dcebed; border-radius:14px; background:var(--panel); box-shadow:0 8px 24px rgba(25,75,83,.07); }
+    .card .label { color:var(--muted); font-size:13px; }
+    .card .value { margin-top:8px; font-size:clamp(21px,3vw,30px); font-weight:800; }
+    .card .unit { font-size:13px; color:var(--muted); }
+    .status { display:inline-block; margin-top:10px; padding:4px 8px; border-radius:999px; font-size:12px; font-weight:700; }
+    .good { color:#146c43; background:#d1e7dd; } .warn { color:#7f6000; background:#fff3cd; } .bad { color:#842029; background:#f8d7da; }
+    .grid { display:grid; grid-template-columns:2fr 1fr; gap:14px; margin-top:14px; }
+    .panel h2 { margin:0 0 14px; font-size:17px; }
+    #chart { width:100%; min-height:260px; }
+    table { width:100%; border-collapse:collapse; }
+    th,td { padding:9px 6px; border-bottom:1px solid #edf2f3; text-align:right; }
+    th:first-child,td:first-child { text-align:left; }
+    .error { padding:20px; color:#842029; background:#f8d7da; border-radius:10px; }
+    @media (max-width:800px) { .cards { grid-template-columns:repeat(2,1fr); } .grid { grid-template-columns:1fr; } }
+    @media (max-width:460px) { .cards { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Hospital Water Monitoring</h1>
+    <p>ภาพรวมการใช้น้ำ ประสิทธิภาพ และความปลอดภัยของน้ำสำรอง</p>
+  </header>
+  <main>
+    <div class="toolbar"><span id="updated">กำลังโหลดข้อมูล…</span><button id="refresh">อัปเดต</button></div>
+    <div id="content"></div>
+  </main>
+  <script>
+    const ACCESS_TOKEN = <?!= JSON.stringify(accessToken) ?>;
+    const content = document.getElementById('content');
+    const updated = document.getElementById('updated');
+    document.getElementById('refresh').addEventListener('click', load);
+
+    function n(value) {
+      return Number(value || 0).toLocaleString('th-TH', { maximumFractionDigits:2 });
+    }
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>'"]/g, function(char) { return ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'})[char]; });
+    }
+    function load() {
+      updated.textContent = 'กำลังโหลดข้อมูล…';
+      google.script.run.withSuccessHandler(render).withFailureHandler(function(error) {
+        content.innerHTML = '<div class="error">' + escapeHtml(error.message || error) + '</div>';
+      }).getDashboardData(ACCESS_TOKEN);
+    }
+    function render(data) {
+      updated.textContent = 'อัปเดต ' + data.generatedAt;
+      if (!data.latest) {
+        content.innerHTML = '<div class="panel">ยังไม่มีข้อมูลรายเดือน</div>';
+        return;
+      }
+      const x = data.latest;
+      const statusClass = x.daysLeft < data.settings.criticalDays ? 'bad' : x.daysLeft <= data.settings.warningDays ? 'warn' : 'good';
+      const statusText = statusClass === 'bad' ? 'ต่ำกว่าเกณฑ์วิกฤต' : statusClass === 'warn' ? 'ควรเฝ้าระวัง' : 'อยู่ในเกณฑ์';
+      content.innerHTML =
+        '<section class="cards">' +
+          card('ปริมาณใช้รวม', n(x.total), 'ลบ.ม.') + card('ใช้เฉลี่ยต่อวัน', n(x.avgPerDay), 'ลบ.ม.') +
+          card('ระดับน้ำสำรอง', n(x.reserve), 'ลบ.ม.') +
+          '<article class="card"><div class="label">น้ำสำรองใช้ได้อีก</div><div class="value">' + n(x.daysLeft) + '</div><div class="unit">วัน</div><span class="status ' + statusClass + '">' + statusText + '</span></article>' +
+        '</section>' +
+        '<section class="grid"><article class="panel"><h2>แนวโน้ม 12 เดือนล่าสุด</h2><div id="chart"></div></article>' +
+        '<article class="panel"><h2>ข้อมูลล่าสุด: ' + escapeHtml(x.month) + ' ' + x.year + '</h2>' +
+          '<table><tr><td>น้ำเทศบาล</td><td>' + n(x.municipal) + '</td></tr><tr><td>น้ำโรงผลิต</td><td>' + n(x.plant) + '</td></tr>' +
+          '<tr><td>OPD</td><td>' + n(x.opd) + '</td></tr><tr><td>Patient Day</td><td>' + n(x.patientDays) + '</td></tr>' +
+          '<tr><td>ลิตร/OPD</td><td>' + n(x.litersPerOpd) + '</td></tr><tr><td>ลิตร/Patient Day</td><td>' + n(x.litersPerPatientDay) + '</td></tr></table></article></section>';
+      renderChart(data.trend);
+    }
+    function card(label, value, unit) {
+      return '<article class="card"><div class="label">' + label + '</div><div class="value">' + value + '</div><div class="unit">' + unit + '</div></article>';
+    }
+    function renderChart(trend) {
+      const host = document.getElementById('chart');
+      if (!trend || trend.length < 2) { host.textContent = 'ต้องมีข้อมูลอย่างน้อย 2 เดือน'; return; }
+      const width = 760, height = 250, pad = 38;
+      const values = trend.map(function(item) { return Number(item.total || 0); });
+      const max = Math.max.apply(null, values.concat([1]));
+      const points = values.map(function(value,index) {
+        const x = pad + index * ((width-pad*2) / Math.max(values.length-1,1));
+        const y = height-pad - value/max*(height-pad*2);
+        return x.toFixed(1) + ',' + y.toFixed(1);
+      }).join(' ');
+      const labels = trend.map(function(item,index) {
+        const x = pad + index * ((width-pad*2) / Math.max(values.length-1,1));
+        return '<text x="' + x + '" y="235" text-anchor="middle" font-size="10" fill="#67777b">' + escapeHtml(item.month) + '</text>';
+      }).join('');
+      host.innerHTML = '<svg viewBox="0 0 ' + width + ' ' + height + '" role="img" aria-label="กราฟแนวโน้มการใช้น้ำ">' +
+        '<line x1="38" y1="212" x2="722" y2="212" stroke="#cbdcdf"/><polyline points="' + points + '" fill="none" stroke="#0b7285" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>' + labels + '</svg>';
+    }
+    load();
+  </script>
+</body>
+</html>
