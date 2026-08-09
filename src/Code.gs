@@ -1,12 +1,12 @@
 /**
  * Hospital Water Monitoring System
  * Google Sheets + Google Apps Script
- * Version 1.0.0
+ * Version 1.1.0
  */
 
 const APP = Object.freeze({
   NAME: 'Hospital Water Monitoring',
-  VERSION: '1.0.0',
+  VERSION: '1.1.0',
   TIMEZONE: 'Asia/Bangkok',
   SHEETS: Object.freeze({
     RAW: 'Raw_Water_Data',
@@ -618,25 +618,286 @@ function refreshDashboardSheet_() {
 }
 
 function getDashboardData(accessToken) {
-  ensureSecrets_();
-  const expected = PropertiesService.getScriptProperties().getProperty(APP.PROP.DASHBOARD_TOKEN);
-  if (!accessToken || accessToken !== expected) throw new Error('Unauthorized');
+  authorizeDashboard_(accessToken);
   return getDashboardDataInternal_();
 }
 
-function getDashboardDataInternal_() {
+/** Returns a validated, selectable reporting period for the web dashboard. */
+function getPeriodDashboardData(accessToken, filters) {
+  authorizeDashboard_(accessToken);
+  return getDashboardDataInternal_(filters || {});
+}
+
+function authorizeDashboard_(accessToken) {
+  ensureSecrets_();
+  const expected = PropertiesService.getScriptProperties().getProperty(APP.PROP.DASHBOARD_TOKEN);
+  if (!accessToken || accessToken !== expected) throw new Error('Unauthorized');
+}
+
+function getDashboardDataInternal_(filters) {
   const records = readMonthlyRecords_();
-  const latest = records.length ? records[records.length - 1] : null;
-  return {
-    version: APP.VERSION,
-    generatedAt: Utilities.formatDate(new Date(), APP.TIMEZONE, "yyyy-MM-dd'T'HH:mm:ssXXX"),
-    latest: latest,
-    trend: records.slice(-12),
-    settings: {
-      warningDays: getSettings_().warningDays,
-      criticalDays: getSettings_().criticalDays
-    }
+  const currentSettings = getSettings_();
+  const report = buildPeriodDashboardData_(records, filters || {}, {
+    warningDays: currentSettings.warningDays,
+    criticalDays: currentSettings.criticalDays
+  });
+  report.version = APP.VERSION;
+  report.generatedAt = Utilities.formatDate(new Date(), APP.TIMEZONE, "yyyy-MM-dd'T'HH:mm:ssXXX");
+  return report;
+}
+
+/** Pure report builder kept separate so period calculations can be regression-tested. */
+function buildPeriodDashboardData_(records, filters, settings) {
+  const allRecords = Array.isArray(records) ? records.slice().sort(function(a, b) {
+    return a.sortKey - b.sortKey;
+  }) : [];
+  const safeSettings = {
+    warningDays: finitePositiveOr_(settings && settings.warningDays, APP.DEFAULT_WARNING_DAYS),
+    criticalDays: finitePositiveOr_(settings && settings.criticalDays, APP.DEFAULT_CRITICAL_DAYS)
   };
+  if (safeSettings.warningDays <= safeSettings.criticalDays) {
+    safeSettings.warningDays = Math.max(APP.DEFAULT_WARNING_DAYS, safeSettings.criticalDays + 0.5);
+  }
+  const availablePeriods = allRecords.map(function(item) {
+    return { key: item.sortKey, label: item.month + ' ' + item.year, year: item.year, month: item.month };
+  });
+  if (!allRecords.length) {
+    return {
+      latest: null, trend: [], records: [], recent: [], availablePeriods: [], selection: null,
+      summary: null, previousSummary: null, analytics: [], buildings: [], settings: safeSettings
+    };
+  }
+
+  const selection = normalizePeriodFilters_(allRecords, filters || {});
+  const selected = allRecords.filter(function(item) {
+    return item.sortKey >= selection.fromKey && item.sortKey <= selection.toKey;
+  });
+  const earlier = allRecords.filter(function(item) { return item.sortKey < selection.fromKey; });
+  const previous = earlier.length >= selected.length ? earlier.slice(earlier.length - selected.length) : [];
+  const summary = summarizeRecords_(selected, safeSettings);
+  const previousSummary = previous.length ? summarizeRecords_(previous, safeSettings) : null;
+  const buildings = summarizeBuildings_(selected);
+  const analytics = buildPeriodAnalytics_(selected, summary, previousSummary, buildings, safeSettings);
+
+  return {
+    latest: selected.length ? selected[selected.length - 1] : null,
+    trend: selected.slice(-12),
+    records: selected,
+    recent: selected.slice(-6).reverse(),
+    availablePeriods: availablePeriods,
+    selection: {
+      fromKey: selection.fromKey,
+      toKey: selection.toKey,
+      fromLabel: selected.length ? selected[0].month + ' ' + selected[0].year : '',
+      toLabel: selected.length ? selected[selected.length - 1].month + ' ' + selected[selected.length - 1].year : '',
+      months: selected.length,
+      previousMonths: previous.length
+    },
+    summary: summary,
+    previousSummary: previousSummary,
+    analytics: analytics,
+    buildings: buildings,
+    settings: safeSettings
+  };
+}
+
+function normalizePeriodFilters_(records, filters) {
+  const minKey = records[0].sortKey;
+  const maxKey = records[records.length - 1].sortKey;
+  const defaultStart = records[Math.max(0, records.length - 12)].sortKey;
+  let fromKey = finiteIntegerOr_(filters && filters.fromKey, defaultStart);
+  let toKey = finiteIntegerOr_(filters && filters.toKey, maxKey);
+  fromKey = Math.max(minKey, Math.min(maxKey, fromKey));
+  toKey = Math.max(minKey, Math.min(maxKey, toKey));
+  if (fromKey > toKey) {
+    const swap = fromKey;
+    fromKey = toKey;
+    toKey = swap;
+  }
+  return { fromKey: fromKey, toKey: toKey };
+}
+
+function summarizeRecords_(records, settings) {
+  if (!records.length) return null;
+  const first = records[0];
+  const latest = records[records.length - 1];
+  const totalUsage = sumBy_(records, 'total');
+  const municipalTotal = sumBy_(records, 'municipal');
+  const plantTotal = sumBy_(records, 'plant');
+  const validReserve = records.filter(function(item) { return item.hasReserveData !== false; });
+  const criticalMonths = validReserve.filter(function(item) { return item.daysLeft < settings.criticalDays; });
+  const warningMonths = validReserve.filter(function(item) {
+    return item.daysLeft >= settings.criticalDays && item.daysLeft <= settings.warningDays;
+  });
+  const peak = records.reduce(function(best, item) { return item.total > best.total ? item : best; }, first);
+  const lowest = records.reduce(function(best, item) { return item.total < best.total ? item : best; }, first);
+  return {
+    months: records.length,
+    totalUsage: totalUsage,
+    averageMonthly: safeDivide_(totalUsage, records.length),
+    averageDaily: averagePositiveBy_(records, 'avgPerDay'),
+    latestTotal: latest.total,
+    currentReserve: latest.reserve,
+    currentDaysLeft: latest.daysLeft,
+    averageDaysLeft: averageBy_(validReserve, 'daysLeft'),
+    minimumDaysLeft: validReserve.length ? Math.min.apply(null, validReserve.map(function(item) { return item.daysLeft; })) : 0,
+    municipalShare: safeDivide_(municipalTotal * 100, totalUsage),
+    plantShare: safeDivide_(plantTotal * 100, totalUsage),
+    firstToLastChangePercent: first.total > 0 && records.length > 1 ? (latest.total - first.total) * 100 / first.total : null,
+    averageLitersPerOpd: averagePositiveBy_(records, 'litersPerOpd'),
+    averageLitersPerPatientDay: averagePositiveBy_(records, 'litersPerPatientDay'),
+    peak: { label: peak.month + ' ' + peak.year, value: peak.total },
+    lowest: { label: lowest.month + ' ' + lowest.year, value: lowest.total },
+    criticalMonths: criticalMonths.length,
+    warningMonths: warningMonths.length,
+    currentStatus: reserveStatus_(latest, settings)
+  };
+}
+
+function summarizeBuildings_(records) {
+  const names = ['อาคารผู้ป่วยใน', 'อาคารผู้ป่วยนอก', 'อาคารสนับสนุน'];
+  return names.map(function(name, index) {
+    const variances = records.map(function(item) { return finiteOrZero_(item.buildingVariance[index]); });
+    const usages = records.map(function(item) { return finiteOrZero_(item.buildingUsage[index]); });
+    return {
+      name: name,
+      totalUsage: usages.reduce(function(total, value) { return total + value; }, 0),
+      totalVariance: variances.reduce(function(total, value) { return total + value; }, 0),
+      averageVariance: safeDivide_(variances.reduce(function(total, value) { return total + value; }, 0), variances.length),
+      monthsOverTarget: variances.filter(function(value) { return value > 0; }).length,
+      monthsUnderOrAtTarget: variances.filter(function(value) { return value <= 0; }).length
+    };
+  });
+}
+
+function buildPeriodAnalytics_(records, summary, previousSummary, buildings, settings) {
+  if (!summary || !records.length) return [];
+  const insights = [];
+  const periodChange = previousSummary && previousSummary.totalUsage > 0
+    ? (summary.totalUsage - previousSummary.totalUsage) * 100 / previousSummary.totalUsage : null;
+  insights.push({
+    category: 'usage',
+    severity: periodChange !== null && periodChange > 10 ? 'warning' : 'info',
+    title: 'แนวโน้มการใช้น้ำในช่วงที่เลือก',
+    finding: 'ใช้เฉลี่ย ' + formatNumber_(summary.averageMonthly) + ' ลบ.ม./เดือน; สูงสุด ' + summary.peak.label +
+      ' (' + formatNumber_(summary.peak.value) + ' ลบ.ม.) และต่ำสุด ' + summary.lowest.label +
+      ' (' + formatNumber_(summary.lowest.value) + ' ลบ.ม.)' +
+      (periodChange === null ? '' : '; เทียบช่วงก่อนหน้า ' + signedPercent_(periodChange)),
+    recommendation: periodChange !== null && periodChange > 10
+      ? 'ทบทวนกิจกรรมหรือจุดใช้น้ำที่เพิ่มขึ้นในเดือนสูงสุด และตรวจสอบมิเตอร์ย่อยก่อนรอบรายงานถัดไป'
+      : 'ติดตามค่าเฉลี่ยรายเดือนและตรวจสอบสาเหตุเมื่อการใช้เปลี่ยนเกิน 10% จากช่วงเปรียบเทียบ'
+  });
+
+  insights.push({
+    category: 'source',
+    severity: summary.plantShare >= 80 ? 'warning' : 'info',
+    title: 'สัดส่วนแหล่งน้ำ',
+    finding: 'น้ำจากโรงผลิตคิดเป็น ' + formatNumber_(summary.plantShare) + '% และน้ำเทศบาล ' +
+      formatNumber_(summary.municipalShare) + '% ของการใช้ทั้งหมด',
+    recommendation: summary.plantShare >= 80
+      ? 'จัดทำแผนสำรองเมื่อโรงผลิตหยุดทำงาน และทดสอบความพร้อมของแหล่งน้ำเทศบาลตามรอบ'
+      : 'รักษาความพร้อมของทั้งสองแหล่งและติดตามการเปลี่ยนแปลงของสัดส่วนเป็นรายเดือน'
+  });
+
+  const reserveSeverity = summary.currentStatus === 'critical' || summary.criticalMonths > 0
+    ? 'critical' : summary.currentStatus === 'warning' || summary.warningMonths > 0 ? 'warning' : 'good';
+  insights.push({
+    category: 'reserve',
+    severity: reserveSeverity,
+    title: 'ความมั่นคงของน้ำสำรอง',
+    finding: 'ต่ำกว่าเกณฑ์วิกฤต ' + summary.criticalMonths + ' เดือน, เฝ้าระวัง ' + summary.warningMonths +
+      ' เดือน; ต่ำสุด ' + formatNumber_(summary.minimumDaysLeft) + ' วัน และเดือนล่าสุด ' +
+      formatNumber_(summary.currentDaysLeft) + ' วัน',
+    recommendation: reserveSeverity === 'critical'
+      ? 'ยืนยันปริมาณสำรองจริง ตรวจสอบอัตราใช้รายวัน และเปิดใช้แผนฉุกเฉินตามผู้รับผิดชอบทันที'
+      : reserveSeverity === 'warning'
+        ? 'เพิ่มความถี่ตรวจระดับน้ำและเตรียมแหล่งจ่ายสำรองก่อนแตะเกณฑ์วิกฤต ' + formatNumber_(settings.criticalDays) + ' วัน'
+        : 'คงการตรวจตามรอบและทดสอบแผนสำรองอย่างสม่ำเสมอ'
+  });
+
+  insights.push({
+    category: 'efficiency',
+    severity: 'info',
+    title: 'ประสิทธิภาพตามภาระบริการ',
+    finding: 'เฉลี่ย ' + formatNumber_(summary.averageLitersPerOpd) + ' ลิตร/OPD และ ' +
+      formatNumber_(summary.averageLitersPerPatientDay) + ' ลิตร/Patient Day',
+    recommendation: 'เปรียบเทียบ KPI กับภาระบริการและกิจกรรมพิเศษของเดือนเดียวกัน ไม่ควรพิจารณาปริมาณน้ำรวมเพียงอย่างเดียว'
+  });
+
+  const worstBuilding = buildings.reduce(function(worst, item) {
+    return item.totalVariance > worst.totalVariance ? item : worst;
+  }, buildings[0]);
+  insights.push({
+    category: 'building',
+    severity: worstBuilding && worstBuilding.monthsOverTarget > Math.max(1, records.length / 2) ? 'warning' : 'info',
+    title: 'การใช้เทียบเป้าหมายอาคาร',
+    finding: worstBuilding ? worstBuilding.name + ' มีผลต่างสะสม ' + signedNumber_(worstBuilding.totalVariance) +
+      ' ลบ.ม. และเกินเป้าหมาย ' + worstBuilding.monthsOverTarget + ' จาก ' + records.length + ' เดือน' : 'ไม่มีข้อมูลอาคาร',
+    recommendation: worstBuilding && worstBuilding.monthsOverTarget > 0
+      ? 'ตรวจสอบเดือนที่เกินเป้าหมายของ ' + worstBuilding.name + ' พร้อมเทียบเลขมิเตอร์และเหตุการณ์ใช้น้ำผิดปกติ'
+      : 'ติดตามผลต่างรายอาคารต่อเนื่องและทบทวนค่าเป้าหมายเมื่อรูปแบบบริการเปลี่ยน'
+  });
+
+  const quality = {
+    opd: records.filter(function(item) { return !item.hasOpdData; }).length,
+    patient: records.filter(function(item) { return !item.hasPatientDayData; }).length,
+    reserve: records.filter(function(item) { return !item.hasReserveData; }).length,
+    building: records.filter(function(item) {
+      return item.buildingUsage.reduce(function(total, value) { return total + finiteOrZero_(value); }, 0) === 0;
+    }).length
+  };
+  const missingTotal = quality.opd + quality.patient + quality.reserve + quality.building;
+  if (missingTotal > 0) {
+    insights.push({
+      category: 'quality', severity: 'warning', title: 'ความครบถ้วนของข้อมูล',
+      finding: 'เดือนที่ข้อมูลอาจไม่ครบ: OPD ' + quality.opd + ', Patient Day ' + quality.patient +
+        ', น้ำสำรอง ' + quality.reserve + ', มิเตอร์อาคาร ' + quality.building,
+      recommendation: 'ตรวจสอบช่องว่างในชีต OPD_Data, Meter_Data และ Raw_Water_Data ก่อนรับรองรายงาน PDF'
+    });
+  }
+  return insights;
+}
+
+function reserveStatus_(record, settings) {
+  if (!record || record.hasReserveData === false) return 'unknown';
+  if (record.daysLeft < settings.criticalDays) return 'critical';
+  if (record.daysLeft <= settings.warningDays) return 'warning';
+  return 'good';
+}
+
+function sumBy_(records, key) {
+  return records.reduce(function(total, item) { return total + finiteOrZero_(item[key]); }, 0);
+}
+
+function averageBy_(records, key) {
+  return records.length ? safeDivide_(sumBy_(records, key), records.length) : 0;
+}
+
+function averagePositiveBy_(records, key) {
+  const valid = records.filter(function(item) { return finiteOrZero_(item[key]) > 0; });
+  return averageBy_(valid, key);
+}
+
+function safeDivide_(numerator, denominator) {
+  return denominator ? finiteOrZero_(numerator) / denominator : 0;
+}
+
+function finiteIntegerOr_(value, fallback) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.round(number) : fallback;
+}
+
+function finitePositiveOr_(value, fallback) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : fallback;
+}
+
+function signedPercent_(value) {
+  return (value > 0 ? '+' : '') + formatNumber_(value) + '%';
+}
+
+function signedNumber_(value) {
+  return (value > 0 ? '+' : '') + formatNumber_(value);
 }
 
 function readMonthlyRecords_() {
@@ -652,7 +913,12 @@ function readMonthlyRecords_() {
       opd: finiteOrZero_(row[7]), ipd: finiteOrZero_(row[8]), litersPerOpd: finiteOrZero_(row[9]),
       patientDays: finiteOrZero_(row[11]), litersPerPatientDay: finiteOrZero_(row[12]),
       reserve: finiteOrZero_(row[13]), avgPerDay: finiteOrZero_(row[14]), daysLeft: finiteOrZero_(row[15]),
+      buildingUsage: [finiteOrZero_(row[16]), finiteOrZero_(row[17]), finiteOrZero_(row[18])],
+      buildingTargets: [finiteOrZero_(row[19]), finiteOrZero_(row[20]), finiteOrZero_(row[21])],
       buildingVariance: [finiteOrZero_(row[22]), finiteOrZero_(row[23]), finiteOrZero_(row[24])],
+      hasOpdData: row[7] !== '' && finiteOrZero_(row[7]) > 0,
+      hasPatientDayData: row[11] !== '' && finiteOrZero_(row[11]) > 0,
+      hasReserveData: row[13] !== '' && row[15] !== '',
       sortKey: Number(row[0]) * 100 + Number(row[2])
     };
   }).sort(function(a, b) { return a.sortKey - b.sortKey; });

@@ -3,103 +3,443 @@
 <head>
   <base target="_top">
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    :root { --primary:#0b7285; --primary2:#1098ad; --ink:#17333a; --muted:#67777b; --panel:#fff; --bg:#eef7f8; }
+    :root {
+      --primary:#087f8c; --primary-dark:#075d67; --primary-soft:#dcf4f5;
+      --blue:#2f80ed; --sky:#75c9d3; --ink:#17333a; --muted:#63777c;
+      --panel:#fff; --bg:#edf6f7; --line:#d9e8ea; --good:#198754;
+      --warn:#b7791f; --bad:#c92a2a; --info:#2563a6;
+    }
     * { box-sizing:border-box; }
-    body { margin:0; font-family:Arial,sans-serif; color:var(--ink); background:linear-gradient(135deg,#e6f5f6,#f8fbfb); }
-    header { padding:24px clamp(18px,5vw,60px); color:#fff; background:linear-gradient(120deg,var(--primary),var(--primary2)); }
-    header h1 { margin:0; font-size:clamp(22px,4vw,34px); }
-    header p { margin:6px 0 0; opacity:.85; }
-    main { max-width:1180px; margin:auto; padding:24px clamp(16px,4vw,42px) 46px; }
-    .toolbar { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:18px; color:var(--muted); }
-    button { border:0; border-radius:8px; padding:9px 14px; color:#fff; background:var(--primary); cursor:pointer; font-weight:700; }
-    .cards { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; }
-    .card,.panel { padding:18px; border:1px solid #dcebed; border-radius:14px; background:var(--panel); box-shadow:0 8px 24px rgba(25,75,83,.07); }
-    .card .label { color:var(--muted); font-size:13px; }
-    .card .value { margin-top:8px; font-size:clamp(21px,3vw,30px); font-weight:800; }
-    .card .unit { font-size:13px; color:var(--muted); }
-    .status { display:inline-block; margin-top:10px; padding:4px 8px; border-radius:999px; font-size:12px; font-weight:700; }
-    .good { color:#146c43; background:#d1e7dd; } .warn { color:#7f6000; background:#fff3cd; } .bad { color:#842029; background:#f8d7da; }
-    .grid { display:grid; grid-template-columns:2fr 1fr; gap:14px; margin-top:14px; }
-    .panel h2 { margin:0 0 14px; font-size:17px; }
-    #chart { width:100%; min-height:260px; }
-    table { width:100%; border-collapse:collapse; }
-    th,td { padding:9px 6px; border-bottom:1px solid #edf2f3; text-align:right; }
+    html { scroll-behavior:smooth; }
+    body { margin:0; font-family:"Noto Sans Thai",Tahoma,Arial,sans-serif; color:var(--ink); background:var(--bg); }
+    header { padding:26px clamp(18px,5vw,64px); color:#fff; background:linear-gradient(120deg,var(--primary-dark),var(--primary)); }
+    .header-inner { max-width:1320px; margin:auto; display:flex; justify-content:space-between; align-items:flex-end; gap:20px; }
+    header h1 { margin:0; font-size:clamp(23px,4vw,36px); line-height:1.2; }
+    header p { margin:7px 0 0; opacity:.88; }
+    .version { font-size:12px; opacity:.78; white-space:nowrap; }
+    main { max-width:1320px; margin:auto; padding:22px clamp(14px,3vw,36px) 54px; }
+    .panel,.card { border:1px solid var(--line); border-radius:15px; background:var(--panel); box-shadow:0 8px 24px rgba(25,75,83,.06); }
+    .controls { padding:16px 18px; margin-bottom:16px; }
+    .control-row { display:flex; flex-wrap:wrap; align-items:flex-end; gap:11px; }
+    .field { min-width:175px; flex:1 1 190px; }
+    label { display:block; margin-bottom:5px; color:var(--muted); font-size:12px; font-weight:700; }
+    select { width:100%; padding:9px 10px; border:1px solid #b9d1d5; border-radius:8px; color:var(--ink); background:#fff; font:inherit; }
+    button { min-height:39px; border:0; border-radius:8px; padding:9px 14px; color:#fff; background:var(--primary); cursor:pointer; font:inherit; font-size:13px; font-weight:700; }
+    button:hover { background:var(--primary-dark); }
+    button.secondary { color:var(--primary-dark); background:var(--primary-soft); }
+    button.pdf { background:#a33b20; }
+    button:disabled { cursor:wait; opacity:.55; }
+    .quick-row { display:flex; flex-wrap:wrap; gap:7px; margin-top:11px; }
+    .quick-row button { min-height:31px; padding:6px 10px; font-size:12px; }
+    .toolbar-meta { display:flex; justify-content:space-between; gap:12px; margin-top:12px; color:var(--muted); font-size:12px; }
+    .report-heading { display:flex; justify-content:space-between; align-items:flex-start; gap:18px; margin:4px 0 15px; }
+    .report-heading h2 { margin:0; font-size:21px; }
+    .report-heading p { margin:4px 0 0; color:var(--muted); font-size:13px; }
+    .report-badge { padding:6px 10px; border-radius:999px; color:var(--primary-dark); background:var(--primary-soft); font-size:12px; font-weight:700; white-space:nowrap; }
+    .cards { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:13px; }
+    .card { padding:17px; min-height:132px; }
+    .card .label { color:var(--muted); font-size:12px; font-weight:700; }
+    .card .value { margin-top:8px; font-size:clamp(22px,3vw,31px); font-weight:800; line-height:1.15; }
+    .card .unit { margin-top:3px; color:var(--muted); font-size:12px; }
+    .card .compare { margin-top:9px; font-size:11px; }
+    .status { display:inline-flex; align-items:center; gap:5px; margin-top:9px; padding:4px 8px; border-radius:999px; font-size:11px; font-weight:800; }
+    .status.good,.severity.good { color:#146c43; background:#d1e7dd; }
+    .status.warning,.severity.warning { color:#7f6000; background:#fff3cd; }
+    .status.critical,.severity.critical { color:#842029; background:#f8d7da; }
+    .status.unknown,.severity.info { color:#245b78; background:#dceef7; }
+    .summary-strip { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); margin-top:13px; overflow:hidden; border:1px solid var(--line); border-radius:12px; background:#fff; }
+    .summary-item { padding:11px 14px; border-right:1px solid var(--line); }
+    .summary-item:last-child { border-right:0; }
+    .summary-item span { display:block; color:var(--muted); font-size:11px; }
+    .summary-item strong { display:block; margin-top:4px; font-size:14px; }
+    .chart-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; margin-top:14px; }
+    .chart-panel { padding:17px; min-width:0; }
+    .panel-title { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:8px; }
+    .panel-title h3 { margin:0; font-size:16px; }
+    .panel-title p { margin:4px 0 0; color:var(--muted); font-size:11px; }
+    .chart { width:100%; min-height:280px; overflow:hidden; }
+    .chart svg { display:block; width:100%; height:auto; }
+    .legend { display:flex; flex-wrap:wrap; justify-content:center; gap:14px; margin-top:5px; color:var(--muted); font-size:11px; }
+    .legend i { display:inline-block; width:9px; height:9px; margin-right:5px; border-radius:2px; }
+    .section { margin-top:14px; padding:18px; }
+    .section h3 { margin:0; font-size:18px; }
+    .section-subtitle { margin:4px 0 15px; color:var(--muted); font-size:12px; }
+    .analysis-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:11px; }
+    .analysis-item { padding:14px; border:1px solid var(--line); border-left:4px solid var(--info); border-radius:10px; background:#fbfdfd; }
+    .analysis-item.critical { border-left-color:var(--bad); }
+    .analysis-item.warning { border-left-color:var(--warn); }
+    .analysis-item.good { border-left-color:var(--good); }
+    .analysis-head { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
+    .analysis-head h4 { margin:0; font-size:14px; }
+    .severity { flex:none; padding:3px 7px; border-radius:999px; font-size:10px; font-weight:800; }
+    .finding { margin:9px 0 0; font-size:12px; line-height:1.6; }
+    .recommendation { margin:8px 0 0; padding-top:8px; border-top:1px dashed var(--line); color:#34575f; font-size:11px; line-height:1.55; }
+    .recommendation strong { color:var(--primary-dark); }
+    .table-wrap { overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; font-size:12px; }
+    th,td { padding:9px 7px; border-bottom:1px solid #e8eff0; text-align:right; white-space:nowrap; }
+    th { color:#38565d; background:#edf7f8; font-weight:800; }
     th:first-child,td:first-child { text-align:left; }
-    .error { padding:20px; color:#842029; background:#f8d7da; border-radius:10px; }
-    @media (max-width:800px) { .cards { grid-template-columns:repeat(2,1fr); } .grid { grid-template-columns:1fr; } }
-    @media (max-width:460px) { .cards { grid-template-columns:1fr; } }
+    .positive { color:var(--bad); font-weight:700; }
+    .negative { color:var(--good); }
+    .report-note { margin-top:12px; color:var(--muted); font-size:10px; line-height:1.6; }
+    .loading,.empty,.error { padding:35px; border-radius:13px; text-align:center; }
+    .loading,.empty { color:var(--muted); background:#fff; }
+    .error { color:#842029; background:#f8d7da; }
+    .spinner { display:inline-block; width:22px; height:22px; margin-bottom:8px; border:3px solid #cae4e7; border-top-color:var(--primary); border-radius:50%; animation:spin .8s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    @media (max-width:900px) {
+      .cards,.summary-strip { grid-template-columns:repeat(2,1fr); }
+      .summary-item:nth-child(2) { border-right:0; }
+      .summary-item:nth-child(-n+2) { border-bottom:1px solid var(--line); }
+      .chart-grid,.analysis-grid { grid-template-columns:1fr; }
+    }
+    @media (max-width:520px) {
+      .header-inner,.report-heading { display:block; }
+      .version,.report-badge { display:inline-block; margin-top:12px; }
+      .cards { grid-template-columns:1fr; }
+      .toolbar-meta { display:block; }
+      .toolbar-meta span { display:block; margin-top:4px; }
+    }
+    @page { size:A4 landscape; margin:9mm; }
+    @media print {
+      :root { --bg:#fff; }
+      body { background:#fff; color:#102d33; print-color-adjust:exact; -webkit-print-color-adjust:exact; }
+      header { padding:12px 0 10px; color:var(--ink); background:#fff; border-bottom:3px solid var(--primary); }
+      .header-inner { max-width:none; }
+      header h1 { font-size:23px; }
+      header p { color:var(--muted); }
+      main { max-width:none; padding:12px 0 0; }
+      .no-print { display:none !important; }
+      .panel,.card { box-shadow:none; }
+      .cards { grid-template-columns:repeat(4,1fr); }
+      .card { min-height:108px; padding:12px; }
+      .card .value { font-size:22px; }
+      .summary-strip { grid-template-columns:repeat(4,1fr); }
+      .summary-item { border-bottom:0 !important; }
+      .chart-grid { grid-template-columns:repeat(2,1fr); gap:9px; }
+      .chart-panel { padding:11px; break-inside:avoid; }
+      .chart { min-height:0; }
+      .analysis-grid { grid-template-columns:repeat(2,1fr); }
+      .analysis-item { break-inside:avoid; padding:10px; }
+      .section { padding:12px; }
+      .page-break { break-before:page; }
+      table { font-size:10px; }
+      th,td { padding:6px 4px; }
+      a { color:inherit; text-decoration:none; }
+    }
   </style>
 </head>
 <body>
   <header>
-    <h1>Hospital Water Monitoring</h1>
-    <p>ภาพรวมการใช้น้ำ ประสิทธิภาพ และความปลอดภัยของน้ำสำรอง</p>
+    <div class="header-inner">
+      <div>
+        <h1>Hospital Water Monitoring</h1>
+        <p>ติดตามสถานการณ์น้ำตามช่วงเวลา พร้อมบทวิเคราะห์เพื่อการตัดสินใจ</p>
+      </div>
+      <div class="version" id="version"></div>
+    </div>
   </header>
   <main>
-    <div class="toolbar"><span id="updated">กำลังโหลดข้อมูล…</span><button id="refresh">อัปเดต</button></div>
-    <div id="content"></div>
+    <section class="panel controls no-print" aria-label="ตัวกรองรายงาน">
+      <div class="control-row">
+        <div class="field"><label for="fromPeriod">ตั้งแต่เดือน</label><select id="fromPeriod"></select></div>
+        <div class="field"><label for="toPeriod">ถึงเดือน</label><select id="toPeriod"></select></div>
+        <button id="applyPeriod">แสดงรายงาน</button>
+        <button class="secondary" id="refresh">อัปเดตข้อมูล</button>
+        <button class="pdf" id="exportPdf" disabled>ส่งออก PDF</button>
+      </div>
+      <div class="quick-row" aria-label="ช่วงเวลาด่วน">
+        <button class="secondary" data-months="6">6 เดือนล่าสุด</button>
+        <button class="secondary" data-months="12">12 เดือนล่าสุด</button>
+        <button class="secondary" data-months="0">ข้อมูลทั้งหมด</button>
+      </div>
+      <div class="toolbar-meta"><span id="updated">กำลังโหลดข้อมูล…</span><span>PDF: กด “ส่งออก PDF” แล้วเลือก Save as PDF / บันทึกเป็น PDF</span></div>
+    </section>
+    <div id="content"><div class="loading"><span class="spinner"></span><br>กำลังจัดทำรายงาน…</div></div>
   </main>
   <script>
     const ACCESS_TOKEN = <?!= JSON.stringify(accessToken) ?>;
     const content = document.getElementById('content');
     const updated = document.getElementById('updated');
-    document.getElementById('refresh').addEventListener('click', load);
+    const fromPeriod = document.getElementById('fromPeriod');
+    const toPeriod = document.getElementById('toPeriod');
+    const exportPdf = document.getElementById('exportPdf');
+    let availablePeriods = [];
+    let currentReport = null;
 
-    function n(value) {
-      return Number(value || 0).toLocaleString('th-TH', { maximumFractionDigits:2 });
+    document.getElementById('applyPeriod').addEventListener('click', function() { load(selectedFilters()); });
+    document.getElementById('refresh').addEventListener('click', function() { load(selectedFilters()); });
+    exportPdf.addEventListener('click', printReport);
+    document.querySelectorAll('[data-months]').forEach(function(button) {
+      button.addEventListener('click', function() { selectPreset(Number(button.dataset.months)); });
+    });
+
+    function n(value, digits) {
+      const number = Number(value);
+      if (!Number.isFinite(number)) return '–';
+      return number.toLocaleString('th-TH', { maximumFractionDigits:typeof digits === 'number' ? digits : 2 });
+    }
+    function signed(value, suffix) {
+      const number = Number(value);
+      if (!Number.isFinite(number)) return 'ไม่มีช่วงเปรียบเทียบ';
+      return (number > 0 ? '+' : '') + n(number) + (suffix || '');
     }
     function escapeHtml(value) {
-      return String(value).replace(/[&<>'"]/g, function(char) { return ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'})[char]; });
+      return String(value == null ? '' : value).replace(/[&<>'"]/g, function(char) {
+        return ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'})[char];
+      });
     }
-    function load() {
-      updated.textContent = 'กำลังโหลดข้อมูล…';
-      google.script.run.withSuccessHandler(render).withFailureHandler(function(error) {
-        content.innerHTML = '<div class="error">' + escapeHtml(error.message || error) + '</div>';
-      }).getDashboardData(ACCESS_TOKEN);
+    function formatDate(value) {
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? escapeHtml(value) : date.toLocaleString('th-TH', { dateStyle:'medium', timeStyle:'short' });
+    }
+    function selectedFilters() {
+      return { fromKey:Number(fromPeriod.value), toKey:Number(toPeriod.value) };
+    }
+    function setBusy(isBusy) {
+      document.querySelectorAll('button').forEach(function(button) { button.disabled = isBusy; });
+      exportPdf.disabled = isBusy || !currentReport;
+    }
+    function load(filters) {
+      setBusy(true);
+      updated.textContent = 'กำลังโหลดและวิเคราะห์ข้อมูล…';
+      content.innerHTML = '<div class="loading"><span class="spinner"></span><br>กำลังจัดทำรายงาน…</div>';
+      google.script.run.withSuccessHandler(render).withFailureHandler(showError)
+        .getPeriodDashboardData(ACCESS_TOKEN, filters || {});
+    }
+    function showError(error) {
+      currentReport = null;
+      setBusy(false);
+      updated.textContent = 'ไม่สามารถอัปเดตข้อมูลได้';
+      content.innerHTML = '<div class="error"><strong>เกิดข้อผิดพลาด</strong><br>' + escapeHtml(error && error.message ? error.message : error) + '</div>';
     }
     function render(data) {
-      updated.textContent = 'อัปเดต ' + data.generatedAt;
-      if (!data.latest) {
-        content.innerHTML = '<div class="panel">ยังไม่มีข้อมูลรายเดือน</div>';
+      currentReport = data;
+      setBusy(false);
+      document.getElementById('version').textContent = 'Version ' + escapeHtml(data.version || '');
+      updated.textContent = 'อัปเดต ' + formatDate(data.generatedAt);
+      populatePeriods(data.availablePeriods || [], data.selection);
+      if (!data.latest || !data.summary) {
+        content.innerHTML = '<div class="empty">ยังไม่มีข้อมูลรายเดือนสำหรับจัดทำรายงาน</div>';
         return;
       }
-      const x = data.latest;
-      const statusClass = x.daysLeft < data.settings.criticalDays ? 'bad' : x.daysLeft <= data.settings.warningDays ? 'warn' : 'good';
-      const statusText = statusClass === 'bad' ? 'ต่ำกว่าเกณฑ์วิกฤต' : statusClass === 'warn' ? 'ควรเฝ้าระวัง' : 'อยู่ในเกณฑ์';
+      const s = data.summary;
+      const periodLabel = data.selection.fromLabel === data.selection.toLabel
+        ? data.selection.fromLabel : data.selection.fromLabel + ' – ' + data.selection.toLabel;
+      const statusText = statusLabel(s.currentStatus);
       content.innerHTML =
-        '<section class="cards">' +
-          card('ปริมาณใช้รวม', n(x.total), 'ลบ.ม.') + card('ใช้เฉลี่ยต่อวัน', n(x.avgPerDay), 'ลบ.ม.') +
-          card('ระดับน้ำสำรอง', n(x.reserve), 'ลบ.ม.') +
-          '<article class="card"><div class="label">น้ำสำรองใช้ได้อีก</div><div class="value">' + n(x.daysLeft) + '</div><div class="unit">วัน</div><span class="status ' + statusClass + '">' + statusText + '</span></article>' +
+        '<section class="report-heading">' +
+          '<div><h2>รายงานติดตามสถานการณ์น้ำ</h2><p>ช่วง ' + escapeHtml(periodLabel) + ' · จัดทำเมื่อ ' + formatDate(data.generatedAt) + '</p></div>' +
+          '<span class="report-badge">' + data.selection.months + ' เดือน</span>' +
         '</section>' +
-        '<section class="grid"><article class="panel"><h2>แนวโน้ม 12 เดือนล่าสุด</h2><div id="chart"></div></article>' +
-        '<article class="panel"><h2>ข้อมูลล่าสุด: ' + escapeHtml(x.month) + ' ' + x.year + '</h2>' +
-          '<table><tr><td>น้ำเทศบาล</td><td>' + n(x.municipal) + '</td></tr><tr><td>น้ำโรงผลิต</td><td>' + n(x.plant) + '</td></tr>' +
-          '<tr><td>OPD</td><td>' + n(x.opd) + '</td></tr><tr><td>Patient Day</td><td>' + n(x.patientDays) + '</td></tr>' +
-          '<tr><td>ลิตร/OPD</td><td>' + n(x.litersPerOpd) + '</td></tr><tr><td>ลิตร/Patient Day</td><td>' + n(x.litersPerPatientDay) + '</td></tr></table></article></section>';
-      renderChart(data.trend);
+        '<section class="cards">' +
+          metricCard('การใช้น้ำรวมในช่วง', n(s.totalUsage), 'ลบ.ม.', 'เฉลี่ย ' + n(s.averageMonthly) + ' ลบ.ม./เดือน') +
+          metricCard('การใช้เดือนล่าสุด', n(s.latestTotal), 'ลบ.ม.', 'ต้นช่วงถึงล่าสุด ' + signed(s.firstToLastChangePercent, '%')) +
+          metricCard('ระดับน้ำสำรองล่าสุด', n(s.currentReserve), 'ลบ.ม.', 'เฉลี่ยใช้ ' + n(s.averageDaily) + ' ลบ.ม./วัน') +
+          '<article class="card"><div class="label">น้ำสำรองใช้ได้อีก</div><div class="value">' + n(s.currentDaysLeft) + '</div><div class="unit">วัน</div>' +
+            '<span class="status ' + escapeHtml(s.currentStatus) + '">' + escapeHtml(statusText) + '</span></article>' +
+        '</section>' +
+        '<section class="summary-strip">' +
+          summaryItem('น้ำจากโรงผลิต', n(s.plantShare) + '%') +
+          summaryItem('น้ำเทศบาล', n(s.municipalShare) + '%') +
+          summaryItem('เดือนวิกฤต / เฝ้าระวัง', s.criticalMonths + ' / ' + s.warningMonths + ' เดือน') +
+          summaryItem('ช่วงก่อนหน้า', previousComparison(data)) +
+        '</section>' +
+        '<section class="chart-grid">' +
+          chartPanel('องค์ประกอบการใช้น้ำรายเดือน', 'น้ำเทศบาล น้ำจากโรงผลิต และยอดรวม', 'sourceChart') +
+          chartPanel('ประสิทธิภาพตามภาระบริการ', 'ลิตรต่อ OPD และลิตรต่อ Patient Day', 'efficiencyChart') +
+          chartPanel('ความเพียงพอของน้ำสำรอง', 'เทียบเกณฑ์วิกฤตและเกณฑ์เฝ้าระวัง', 'reserveChart') +
+          chartPanel('ผลต่างเทียบเป้าหมายอาคาร', 'ผลต่างสะสมของช่วงที่เลือก; ค่าบวกคือเกินเป้าหมาย', 'buildingChart') +
+        '</section>' +
+        '<section class="panel section page-break"><h3>บทวิเคราะห์และข้อเสนอแนะ</h3>' +
+          '<p class="section-subtitle">ข้อค้นพบคำนวณจากข้อมูลในช่วงที่เลือกโดยอัตโนมัติ โปรดตรวจสอบความครบถ้วนก่อนรับรองรายงาน</p>' +
+          '<div class="analysis-grid">' + renderAnalytics(data.analytics || []) + '</div></section>' +
+        '<section class="panel section"><h3>รายละเอียด 6 เดือนล่าสุดในช่วงรายงาน</h3>' +
+          '<p class="section-subtitle">เรียงจากเดือนล่าสุด เพื่อใช้ตรวจสอบค่าที่มีผลต่อบทวิเคราะห์</p>' +
+          renderTable(data.recent || [], data.settings) +
+          '<p class="report-note">เกณฑ์น้ำสำรอง: วิกฤต &lt; ' + n(data.settings.criticalDays) + ' วัน; เฝ้าระวัง ' +
+            n(data.settings.criticalDays) + '–' + n(data.settings.warningDays) + ' วัน. ผลต่างอาคาร = การใช้จริง − เป้าหมาย. ' +
+            'รายงานนี้ใช้สำหรับบริหารจัดการสาธารณูปโภคและไม่ควรมีข้อมูลระบุตัวผู้ป่วย.</p></section>';
+      renderSourceChart(data.records || []);
+      renderEfficiencyChart(data.records || []);
+      renderReserveChart(data.records || [], data.settings);
+      renderBuildingChart(data.buildings || []);
     }
-    function card(label, value, unit) {
-      return '<article class="card"><div class="label">' + label + '</div><div class="value">' + value + '</div><div class="unit">' + unit + '</div></article>';
-    }
-    function renderChart(trend) {
-      const host = document.getElementById('chart');
-      if (!trend || trend.length < 2) { host.textContent = 'ต้องมีข้อมูลอย่างน้อย 2 เดือน'; return; }
-      const width = 760, height = 250, pad = 38;
-      const values = trend.map(function(item) { return Number(item.total || 0); });
-      const max = Math.max.apply(null, values.concat([1]));
-      const points = values.map(function(value,index) {
-        const x = pad + index * ((width-pad*2) / Math.max(values.length-1,1));
-        const y = height-pad - value/max*(height-pad*2);
-        return x.toFixed(1) + ',' + y.toFixed(1);
-      }).join(' ');
-      const labels = trend.map(function(item,index) {
-        const x = pad + index * ((width-pad*2) / Math.max(values.length-1,1));
-        return '<text x="' + x + '" y="235" text-anchor="middle" font-size="10" fill="#67777b">' + escapeHtml(item.month) + '</text>';
+    function populatePeriods(periods, selection) {
+      availablePeriods = periods;
+      const options = periods.map(function(item) {
+        return '<option value="' + Number(item.key) + '">' + escapeHtml(item.label) + '</option>';
       }).join('');
-      host.innerHTML = '<svg viewBox="0 0 ' + width + ' ' + height + '" role="img" aria-label="กราฟแนวโน้มการใช้น้ำ">' +
-        '<line x1="38" y1="212" x2="722" y2="212" stroke="#cbdcdf"/><polyline points="' + points + '" fill="none" stroke="#0b7285" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>' + labels + '</svg>';
+      fromPeriod.innerHTML = options;
+      toPeriod.innerHTML = options;
+      if (selection) {
+        fromPeriod.value = String(selection.fromKey);
+        toPeriod.value = String(selection.toKey);
+      }
+    }
+    function selectPreset(months) {
+      if (!availablePeriods.length) return;
+      const end = availablePeriods.length - 1;
+      const start = months > 0 ? Math.max(0, availablePeriods.length - months) : 0;
+      fromPeriod.value = String(availablePeriods[start].key);
+      toPeriod.value = String(availablePeriods[end].key);
+      load(selectedFilters());
+    }
+    function printReport() {
+      if (!currentReport || !currentReport.selection) return;
+      const oldTitle = document.title;
+      document.title = 'Water_Report_' + currentReport.selection.fromKey + '_' + currentReport.selection.toKey;
+      window.print();
+      window.setTimeout(function() { document.title = oldTitle; }, 500);
+    }
+    function metricCard(label, value, unit, compare) {
+      return '<article class="card"><div class="label">' + escapeHtml(label) + '</div><div class="value">' + escapeHtml(value) +
+        '</div><div class="unit">' + escapeHtml(unit) + '</div><div class="compare">' + escapeHtml(compare) + '</div></article>';
+    }
+    function summaryItem(label, value) {
+      return '<div class="summary-item"><span>' + escapeHtml(label) + '</span><strong>' + escapeHtml(value) + '</strong></div>';
+    }
+    function previousComparison(data) {
+      if (!data.previousSummary || !data.previousSummary.totalUsage) return 'ไม่มีข้อมูลเพียงพอ';
+      const change = (data.summary.totalUsage - data.previousSummary.totalUsage) * 100 / data.previousSummary.totalUsage;
+      return signed(change, '%') + ' (' + data.selection.previousMonths + ' เดือน)';
+    }
+    function statusLabel(status) {
+      return status === 'critical' ? 'วิกฤต' : status === 'warning' ? 'เฝ้าระวัง' : status === 'good' ? 'อยู่ในเกณฑ์' : 'ไม่มีข้อมูล';
+    }
+    function severityLabel(severity) {
+      return severity === 'critical' ? 'เร่งด่วน' : severity === 'warning' ? 'เฝ้าระวัง' : severity === 'good' ? 'ปกติ' : 'ข้อสังเกต';
+    }
+    function chartPanel(title, subtitle, id) {
+      return '<article class="panel chart-panel"><div class="panel-title"><div><h3>' + escapeHtml(title) + '</h3><p>' +
+        escapeHtml(subtitle) + '</p></div></div><div class="chart" id="' + id + '"></div></article>';
+    }
+    function renderAnalytics(items) {
+      return items.map(function(item) {
+        return '<article class="analysis-item ' + escapeHtml(item.severity) + '"><div class="analysis-head"><h4>' +
+          escapeHtml(item.title) + '</h4><span class="severity ' + escapeHtml(item.severity) + '">' +
+          escapeHtml(severityLabel(item.severity)) + '</span></div><p class="finding"><strong>ข้อค้นพบ:</strong> ' +
+          escapeHtml(item.finding) + '</p><p class="recommendation"><strong>ข้อเสนอแนะ:</strong> ' +
+          escapeHtml(item.recommendation) + '</p></article>';
+      }).join('');
+    }
+    function renderTable(records, settings) {
+      if (!records.length) return '<div class="empty">ไม่มีข้อมูล</div>';
+      const rows = records.map(function(item) {
+        const status = item.hasReserveData === false ? 'unknown' : item.daysLeft < settings.criticalDays ? 'critical' :
+          item.daysLeft <= settings.warningDays ? 'warning' : 'good';
+        return '<tr><td>' + escapeHtml(item.month + ' ' + item.year) + '</td><td>' + n(item.municipal) + '</td><td>' +
+          n(item.plant) + '</td><td><strong>' + n(item.total) + '</strong></td><td>' + n(item.litersPerOpd) + '</td><td>' +
+          n(item.litersPerPatientDay) + '</td><td>' + n(item.reserve) + '</td><td><span class="status ' + status + '">' +
+          n(item.daysLeft) + ' วัน</span></td><td class="' + (item.buildingVariance[0] > 0 ? 'positive' : 'negative') + '">' +
+          signed(item.buildingVariance[0]) + '</td><td class="' + (item.buildingVariance[1] > 0 ? 'positive' : 'negative') + '">' +
+          signed(item.buildingVariance[1]) + '</td><td class="' + (item.buildingVariance[2] > 0 ? 'positive' : 'negative') + '">' +
+          signed(item.buildingVariance[2]) + '</td></tr>';
+      }).join('');
+      return '<div class="table-wrap"><table><thead><tr><th>เดือน</th><th>เทศบาล</th><th>โรงผลิต</th><th>รวม</th>' +
+        '<th>ลิตร/OPD</th><th>ลิตร/Patient Day</th><th>น้ำสำรอง</th><th>ใช้ได้อีก</th><th>ผู้ป่วยใน</th>' +
+        '<th>ผู้ป่วยนอก</th><th>สนับสนุน</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+    }
+
+    function chartFrame(records, maxValue, formatter) {
+      const width = 760, height = 290, left = 58, right = 20, top = 18, bottom = 48;
+      const plotW = width - left - right, plotH = height - top - bottom;
+      const safeMax = Math.max(Number(maxValue) || 0, 1);
+      let grid = '';
+      for (let index = 0; index <= 4; index++) {
+        const y = top + plotH * index / 4;
+        const value = safeMax * (1 - index / 4);
+        grid += '<line x1="' + left + '" y1="' + y + '" x2="' + (width-right) + '" y2="' + y + '" stroke="#e2ecee"/>' +
+          '<text x="' + (left-8) + '" y="' + (y+4) + '" text-anchor="end" font-size="10" fill="#63777c">' +
+          escapeHtml(formatter ? formatter(value) : n(value, 0)) + '</text>';
+      }
+      const step = plotW / Math.max(records.length, 1);
+      const every = Math.max(1, Math.ceil(records.length / 9));
+      const labels = records.map(function(item, index) {
+        if (index % every !== 0 && index !== records.length - 1) return '';
+        const x = left + step * (index + .5);
+        const text = item.month + ' ' + String(item.year).slice(-2);
+        return '<text x="' + x + '" y="' + (height-17) + '" text-anchor="middle" font-size="9" fill="#63777c">' + escapeHtml(text) + '</text>';
+      }).join('');
+      return { width:width, height:height, left:left, top:top, bottom:bottom, plotW:plotW, plotH:plotH, max:safeMax, step:step, grid:grid, labels:labels };
+    }
+    function yFor(value, frame) { return frame.top + frame.plotH - (Number(value) || 0) / frame.max * frame.plotH; }
+    function xFor(index, frame) { return frame.left + frame.step * (index + .5); }
+    function polyline(records, key, frame) {
+      return records.map(function(item, index) { return xFor(index, frame).toFixed(1) + ',' + yFor(item[key], frame).toFixed(1); }).join(' ');
+    }
+    function svgWrap(frame, label, body) {
+      return '<svg viewBox="0 0 ' + frame.width + ' ' + frame.height + '" role="img" aria-label="' + escapeHtml(label) + '">' + frame.grid + body + frame.labels + '</svg>';
+    }
+    function renderSourceChart(records) {
+      const host = document.getElementById('sourceChart');
+      if (!records.length) { host.textContent = 'ไม่มีข้อมูล'; return; }
+      const max = Math.max.apply(null, records.map(function(item) { return item.total; }).concat([1])) * 1.12;
+      const frame = chartFrame(records, max);
+      const barW = Math.min(28, frame.step * .62);
+      let bars = records.map(function(item, index) {
+        const x = xFor(index, frame) - barW / 2;
+        const plantY = yFor(item.plant, frame);
+        const totalY = yFor(item.municipal + item.plant, frame);
+        const base = frame.top + frame.plotH;
+        return '<rect x="' + x + '" y="' + plantY + '" width="' + barW + '" height="' + Math.max(0, base-plantY) + '" fill="#087f8c"/>' +
+          '<rect x="' + x + '" y="' + totalY + '" width="' + barW + '" height="' + Math.max(0, plantY-totalY) + '" fill="#75c9d3"/>';
+      }).join('');
+      bars += '<polyline points="' + polyline(records, 'total', frame) + '" fill="none" stroke="#a33b20" stroke-width="2.5" stroke-linejoin="round"/>';
+      host.innerHTML = svgWrap(frame, 'กราฟองค์ประกอบการใช้น้ำรายเดือน', bars) +
+        '<div class="legend"><span><i style="background:#75c9d3"></i>เทศบาล</span><span><i style="background:#087f8c"></i>โรงผลิต</span><span><i style="background:#a33b20"></i>รวม</span></div>';
+    }
+    function renderEfficiencyChart(records) {
+      const host = document.getElementById('efficiencyChart');
+      if (!records.length) { host.textContent = 'ไม่มีข้อมูล'; return; }
+      const max = Math.max.apply(null, records.reduce(function(values, item) {
+        return values.concat([item.litersPerOpd, item.litersPerPatientDay]);
+      }, [1])) * 1.12;
+      const frame = chartFrame(records, max);
+      const body = '<polyline points="' + polyline(records, 'litersPerOpd', frame) + '" fill="none" stroke="#2f80ed" stroke-width="3"/>' +
+        '<polyline points="' + polyline(records, 'litersPerPatientDay', frame) + '" fill="none" stroke="#e67e22" stroke-width="3"/>';
+      host.innerHTML = svgWrap(frame, 'กราฟประสิทธิภาพการใช้น้ำตามภาระบริการ', body) +
+        '<div class="legend"><span><i style="background:#2f80ed"></i>ลิตร/OPD</span><span><i style="background:#e67e22"></i>ลิตร/Patient Day</span></div>';
+    }
+    function renderReserveChart(records, settings) {
+      const host = document.getElementById('reserveChart');
+      if (!records.length) { host.textContent = 'ไม่มีข้อมูล'; return; }
+      const max = Math.max.apply(null, records.map(function(item) { return item.daysLeft; }).concat([settings.warningDays, 1])) * 1.2;
+      const frame = chartFrame(records, max, function(value) { return n(value, 1); });
+      const warningY = yFor(settings.warningDays, frame), criticalY = yFor(settings.criticalDays, frame);
+      let body = '<line x1="' + frame.left + '" y1="' + warningY + '" x2="' + (frame.width-20) + '" y2="' + warningY + '" stroke="#b7791f" stroke-width="1.5" stroke-dasharray="6 4"/>' +
+        '<line x1="' + frame.left + '" y1="' + criticalY + '" x2="' + (frame.width-20) + '" y2="' + criticalY + '" stroke="#c92a2a" stroke-width="1.5" stroke-dasharray="6 4"/>' +
+        '<polyline points="' + polyline(records, 'daysLeft', frame) + '" fill="none" stroke="#087f8c" stroke-width="3"/>';
+      body += records.map(function(item, index) {
+        const color = item.daysLeft < settings.criticalDays ? '#c92a2a' : item.daysLeft <= settings.warningDays ? '#b7791f' : '#198754';
+        return '<circle cx="' + xFor(index, frame) + '" cy="' + yFor(item.daysLeft, frame) + '" r="3.5" fill="' + color + '"/>';
+      }).join('');
+      host.innerHTML = svgWrap(frame, 'กราฟจำนวนวันที่น้ำสำรองรองรับได้', body) +
+        '<div class="legend"><span><i style="background:#087f8c"></i>ใช้ได้อีก (วัน)</span><span><i style="background:#c92a2a"></i>วิกฤต ' + n(settings.criticalDays) + '</span><span><i style="background:#b7791f"></i>เฝ้าระวัง ' + n(settings.warningDays) + '</span></div>';
+    }
+    function renderBuildingChart(buildings) {
+      const host = document.getElementById('buildingChart');
+      if (!buildings.length) { host.textContent = 'ไม่มีข้อมูล'; return; }
+      const width = 760, height = 290, left = 65, right = 24, top = 20, bottom = 58;
+      const values = buildings.map(function(item) { return Number(item.totalVariance || 0); });
+      const absMax = Math.max.apply(null, values.map(Math.abs).concat([1])) * 1.18;
+      const plotH = height - top - bottom, zeroY = top + plotH / 2, plotW = width-left-right;
+      let body = '<line x1="' + left + '" y1="' + zeroY + '" x2="' + (width-right) + '" y2="' + zeroY + '" stroke="#789096" stroke-width="1.5"/>';
+      body += buildings.map(function(item, index) {
+        const slot = plotW / buildings.length, barW = Math.min(90, slot*.5), x = left + slot*(index+.5)-barW/2;
+        const magnitude = Math.abs(item.totalVariance) / absMax * (plotH/2);
+        const y = item.totalVariance >= 0 ? zeroY-magnitude : zeroY;
+        const color = item.totalVariance > 0 ? '#c92a2a' : '#198754';
+        return '<rect x="' + x + '" y="' + y + '" width="' + barW + '" height="' + magnitude + '" rx="3" fill="' + color + '"/>' +
+          '<text x="' + (x+barW/2) + '" y="' + (item.totalVariance >= 0 ? y-7 : y+magnitude+15) + '" text-anchor="middle" font-size="11" font-weight="700" fill="' + color + '">' + escapeHtml(signed(item.totalVariance)) + '</text>' +
+          '<text x="' + (x+barW/2) + '" y="' + (height-25) + '" text-anchor="middle" font-size="10" fill="#63777c">' + escapeHtml(item.name) + '</text>';
+      }).join('');
+      const frame = { width:width, height:height, grid:'', labels:'' };
+      host.innerHTML = svgWrap(frame, 'กราฟผลต่างสะสมเทียบเป้าหมายอาคาร', body) +
+        '<div class="legend"><span><i style="background:#c92a2a"></i>เกินเป้าหมาย</span><span><i style="background:#198754"></i>ไม่เกินเป้าหมาย</span></div>';
     }
     load();
   </script>

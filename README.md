@@ -2,7 +2,7 @@
 
 A production-ready Google Sheets + Google Apps Script starter for hospital water-use monitoring. The installer creates the workbook structure, formulas, validations, alerts, dashboards, logs, API keys, and scheduled triggers automatically.
 
-## Included in version 1.0
+## Included in version 1.1
 
 - Monthly municipal and on-site production water tracking
 - OPD, IPD, Patient Day, and efficiency KPI calculations
@@ -11,6 +11,10 @@ A production-ready Google Sheets + Google Apps Script starter for hospital water
 - Per-building use, target, and variance calculations
 - Thai sidebar entry form with server-side validation
 - In-sheet management dashboard and responsive web dashboard
+- Selectable start/end month reporting with 6-month, 12-month, and all-data presets
+- Dynamic source, efficiency, reserve-safety, and building-variance charts
+- Evidence-based analytical findings, recommendations, and data-quality checks
+- Print-optimized A4 landscape report with browser PDF export
 - Authenticated JSON write API, document locking, and request idempotency
 - Audit, API-request, and alert logs
 - Safe repeatable installer that preserves existing rows
@@ -71,6 +75,8 @@ Deploy the Apps Script project as a Web App. After deployment, return to the spr
 - Monthly write: `POST WEB_APP_URL` with an `apiKey`
 
 See [docs/api.md](docs/api.md) for payloads and security guidance.
+
+The web dashboard initially opens the latest 12 populated months. Staff can choose any populated start and end month, then export the same view with **ส่งออก PDF**. The analysis compares the selected period with the immediately preceding equal-length period when enough historical data exists. See [docs/period-report.md](docs/period-report.md) for the calculation and approval workflow.
 
 ## Validation
 

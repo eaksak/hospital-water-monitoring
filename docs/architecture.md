@@ -12,7 +12,7 @@ The system is a lightweight facilities-management application built as a bound G
 | Storage | Nine Google Sheets tabs | Store facts, master data, and logs |
 | Calculation | Native formulas | Calculate totals, hospital-load KPIs, reserve days, and variance |
 | Automation | Apps Script | Validate, lock writes, send alerts, maintain dashboards and triggers |
-| Output | Dashboard sheet, web dashboard, email, JSON | Present information and notify managers |
+| Output | Dashboard sheet, period web dashboard, PDF print report, email, JSON | Present information and notify managers |
 
 ## Data flow
 
@@ -24,6 +24,15 @@ The system is a lightweight facilities-management application built as a bound G
 6. The reserve engine sends at most one critical alert per month and records it.
 7. The audit log and dashboard are refreshed.
 
+## Period-report calculation flow
+
+1. The dashboard sends authenticated `fromKey` and `toKey` month keys to Apps Script.
+2. The server clamps the request to populated months, normalizes a reversed range, and returns only the selected records.
+3. The immediately preceding equal number of populated months becomes the comparison period when available.
+4. Pure calculation functions aggregate water sources, service-load efficiency, reserve thresholds, and building variances.
+5. Rule-based analysis returns separate observed findings and recommended actions. It does not call an external AI service.
+6. The browser draws dependency-free SVG charts and prints the current report as an A4 landscape PDF.
+
 ## Security model
 
 - Google Drive sharing controls access to the workbook and bound script.
@@ -33,6 +42,7 @@ The system is a lightweight facilities-management application built as a bound G
 - Installable triggers, rather than simple edit triggers, perform authorized email operations.
 - The narrowest possible Web App access setting should be selected during deployment.
 - Only aggregate facility information is allowed; no patient-identifiable data.
+- Period analysis is calculated on the server after dashboard-token validation; the token is never printed in the report.
 
 ## Reliability controls
 
