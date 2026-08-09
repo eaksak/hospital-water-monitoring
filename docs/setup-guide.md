@@ -99,6 +99,16 @@ The installed edit trigger recalculates and checks these edits.
 
 The menu shows a tokenized dashboard URL and the API key. Treat both as passwords. Never place them in source code or GitHub.
 
+### Use the period dashboard and export a PDF
+
+1. Open the complete tokenized Dashboard URL from **💧 Water DB → ดู API และ Dashboard Key**.
+2. Choose the first and last populated month. Use the quick buttons for the latest 6 months, latest 12 months, or all data.
+3. Select **แสดงรายงาน**. Confirm the period shown above the KPI cards.
+4. Review all data-quality warnings in **บทวิเคราะห์และข้อเสนอแนะ**. Correct the source sheets before approving the report when necessary.
+5. Select **ส่งออก PDF**. In the browser print dialog choose **Save as PDF / บันทึกเป็น PDF**, landscape orientation, and background graphics.
+
+The PDF is produced by the browser from the currently selected, token-protected dashboard. No report file is uploaded to an outside service. See [period-report.md](period-report.md) for metric definitions and review controls.
+
 ## 8. Verify the installation
 
 - Open the sidebar and save a test month.
@@ -107,6 +117,8 @@ The menu shows a tokenized dashboard URL and the API key. Treat both as password
 - Open the `Dashboard` sheet.
 - Open `WEB_APP_URL?action=health` and confirm JSON reports `online`.
 - Open the tokenized dashboard URL shown by the menu.
+- Select a different reporting period and confirm all four charts and the analysis update.
+- Export the selected report and confirm its title, period, tables, and charts in the PDF preview.
 - Test the authenticated API with a unique `requestId`.
 
 ## Troubleshooting
